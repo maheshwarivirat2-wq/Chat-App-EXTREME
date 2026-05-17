@@ -19,21 +19,24 @@ alter table public.profiles enable row level security;
 grant select, insert, update on table public.profiles to authenticated;
 
 -- Anyone authenticated can read minimal profile data.
-create policy if not exists "Authenticated users can read profiles"
+drop policy if exists "Authenticated users can read profiles" on public.profiles;
+create policy "Authenticated users can read profiles"
 on public.profiles
 for select
 to authenticated
 using (true);
 
 -- Users can insert only their own profile row.
-create policy if not exists "Users can insert own profile"
+drop policy if exists "Users can insert own profile" on public.profiles;
+create policy "Users can insert own profile"
 on public.profiles
 for insert
 to authenticated
 with check (auth.uid() = id);
 
 -- Users can update only their own profile row.
-create policy if not exists "Users can update own profile"
+drop policy if exists "Users can update own profile" on public.profiles;
+create policy "Users can update own profile"
 on public.profiles
 for update
 to authenticated
