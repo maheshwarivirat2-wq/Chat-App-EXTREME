@@ -15,6 +15,9 @@ create table if not exists public.profiles (
 
 alter table public.profiles enable row level security;
 
+-- Explicit grants required for Data API + RLS access.
+grant select, insert, update on table public.profiles to authenticated;
+
 -- Anyone authenticated can read minimal profile data.
 create policy if not exists "Authenticated users can read profiles"
 on public.profiles
