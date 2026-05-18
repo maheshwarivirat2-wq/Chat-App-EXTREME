@@ -13,7 +13,12 @@ export const createServerSupabaseClient = async () => {
           return cookieStore.getAll();
         },
         setAll(cookiesToSet: Array<{ name: string; value: string; options: Record<string, unknown> }>) {
-          cookiesToSet.forEach(({ name, value, options }) => cookieStore.set(name, value, options));
+          try {
+            cookiesToSet.forEach(({ name, value, options }) => cookieStore.set(name, value, options));
+          } catch {
+            // Cookie writes are not always allowed in Server Components.
+            // Ignore write attempts and rely on middleware/route handlers where writes are permitted.
+          }
         }
       }
     }
