@@ -3,12 +3,20 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { getSupabaseEnv } from '@/lib/supabase/env';
 
 export const updateSession = async (request: NextRequest) => {
+export const updateSession = async (request: NextRequest) => {
   const { url: supabaseUrl, anonKey: supabaseAnonKey, isConfigured } = getSupabaseEnv();
 
   if (!isConfigured || !supabaseUrl || !supabaseAnonKey) {
     console.error(
       '[middleware] Missing Supabase env configuration. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY (or SUPABASE_URL/SUPABASE_ANON_KEY). Skipping auth session refresh.'
     );
+    return NextResponse.next({ request: { headers: request.headers } });
+  }
+
+  let response = NextResponse.next({ request: { headers: request.headers } });
+
+  try {
+    const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
     return NextResponse.next({ request: { headers: request.headers } });
   }
 
