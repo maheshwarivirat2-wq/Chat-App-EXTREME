@@ -21,6 +21,7 @@ export async function updateSession(request: NextRequest) {
           return request.cookies.getAll();
         },
         setAll(cookiesToSet: Array<{ name: string; value: string; options: Record<string, unknown> }>) {
+          // NextRequest cookies only support (name, value), so options are applied on response cookies below.
           cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
           response = NextResponse.next({ request: { headers: request.headers } });
           cookiesToSet.forEach(({ name, value, options }) => response.cookies.set(name, value, options));
