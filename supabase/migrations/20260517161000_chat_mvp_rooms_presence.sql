@@ -115,19 +115,15 @@ with check (auth.uid() = id);
 -- -----------------------------
 -- RLS policies: rooms
 -- -----------------------------
-drop policy if exists "Members can read joined rooms" on public.rooms;
-create policy "Members can read joined rooms"
+drop policy if exists "Authenticated can read rooms" on public.rooms;
+create policy "Authenticated can read rooms"
 on public.rooms
 for select
 to authenticated
-using (
-  exists (
-    select 1
-    from public.room_members rm
-    where rm.room_id = rooms.id
-      and rm.user_id = auth.uid()
-  )
-);
+using (true);
+
+-- NOTE: join flow looks up rooms by invite code before membership insert,
+-- so authenticated users need SELECT visibility for room-code lookup.
 
 drop policy if exists "Authenticated can create rooms they own" on public.rooms;
 create policy "Authenticated can create rooms they own"
