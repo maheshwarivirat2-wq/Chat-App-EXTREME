@@ -1,15 +1,29 @@
 import { requireAuth } from '@/lib/auth/guards';
+import { createServerSupabaseClient } from '@/lib/supabase/server';
+import { RoomsHub } from './_components/rooms-hub';
 
 export default async function RoomsPage() {
   const { user } = await requireAuth();
+  const authedUser = user!;
+  const supabase = await createServerSupabaseClient();
 
-  return (
-    <main className="min-h-screen bg-obsidian px-4 py-8">
-      <div className="glass mx-auto max-w-3xl rounded-2xl p-8">
-        <h1 className="text-2xl font-bold">Rooms</h1>
-        <p className="mt-2 text-textMuted">Authenticated as {user?.email}</p>
-        <p className="mt-4 text-sm text-textMuted">Chat room UI wiring comes next in the following phase.</p>
-      </div>
-    </main>
-  );
+  const { data } = await supabase
+    .from('room_members')
+    .select('rooms(id, name, code, owner_id, created_at)')
+    .eq('user_id', authedUser.id);
+
+  const initialRooms =
+    data
+      ?.map((row) => row.rooms)
+      .flat()
+      .filter(Boolean)
+      .map((room) => ({
+        id: room.id,
+        name: room.name,
+        code: room.code,
+        ownerId: room.owner_id,
+        createdAt: room.created_at
+      })) ?? [];
+
+  return <RoomsHub email={authedUser.email ?? undefined} initialRooms={initialRooms} />;
 }
