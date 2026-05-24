@@ -11,5 +11,5 @@ body {
 }
 
 .glass {
-  @apply border border-borderSoft bg-surface/80 backdrop-blur-md;
+  @apply border border-white/10 bg-surface/80 backdrop-blur-md;
 }

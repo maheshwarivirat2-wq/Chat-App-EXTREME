@@ -10,10 +10,10 @@ export function AuthCard() {
   const [mode, setMode] = useState<'login' | 'signup'>('login');
 
   return (
-    <GlassCard className="w-full max-w-md p-6 shadow-glow">
-      <div className="mb-6 space-y-3">
-        <h1 className="text-2xl font-bold">Welcome back</h1>
-        <p className="text-sm text-textMuted">Private space for your friend group.</p>
+    <GlassCard className="w-full max-w-md border border-white/10 p-7 shadow-glow sm:p-8">
+      <div className="mb-7 space-y-3">
+        <h1 className="text-2xl font-semibold tracking-tight text-white">Welcome back</h1>
+        <p className="text-sm leading-relaxed text-textMuted">Private space for your friend group.</p>
         <AuthTabs mode={mode} onChange={setMode} />
       </div>
       {mode === 'login' ? <LoginForm /> : <SignupForm />}
