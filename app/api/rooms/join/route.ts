@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { createAdminSupabaseClient } from '@/lib/supabase/admin';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 
 export async function POST(request: Request) {
@@ -16,7 +17,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Room code must be 6 letters/numbers.' }, { status: 400 });
   }
 
-  const { data: room, error: roomError } = await supabase
+  const adminSupabase = createAdminSupabaseClient();
+
+  const { data: room, error: roomError } = await adminSupabase
     .from('rooms')
     .select('id, name, code, owner_id, created_at')
     .eq('code', code)
