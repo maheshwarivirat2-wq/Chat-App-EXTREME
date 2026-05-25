@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { useAuthStore } from '@/stores/auth-store';
 import { usePresenceStore } from '@/stores/presence-store';
 import { RoomSummary, useRoomsStore } from '@/stores/rooms-store';
 
@@ -14,15 +15,17 @@ type RoomsHubProps = {
 export function RoomsHub({ email, initialRooms }: RoomsHubProps) {
   const { rooms, setRooms, addRoom } = useRoomsStore();
   const { upsertPresence } = usePresenceStore();
+  const { setUserFullName } = useAuthStore();
   const supabase = useMemo(() => createClient(), []);
   const [showModal, setShowModal] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [newRoomName, setNewRoomName] = useState('');
   const [joinCode, setJoinCode] = useState('');
+  const [fullName, setFullName] = useState('');
   const [customStatus, setCustomStatus] = useState('');
   const [status, setStatus] = useState<string | null>(null);
 
-  const saveCustomStatus = async (event: FormEvent) => {
+  const saveProfile = async (event: FormEvent) => {
     event.preventDefault();
     setStatus(null);
 
@@ -37,6 +40,17 @@ export function RoomsHub({ email, initialRooms }: RoomsHubProps) {
 
     const nowIso = new Date().toISOString();
     const nextStatus = customStatus.trim();
+    const nextFullName = fullName.trim();
+
+    const { error: profileError } = await supabase
+      .from('profiles')
+      .update({ full_name: nextFullName.length ? nextFullName : null })
+      .eq('id', user.id);
+
+    if (profileError) {
+      setStatus(profileError.message);
+      return;
+    }
 
     const { error } = await supabase.from('presence_state').upsert({
       user_id: user.id,
@@ -50,6 +64,7 @@ export function RoomsHub({ email, initialRooms }: RoomsHubProps) {
       return;
     }
 
+    setUserFullName(nextFullName.length ? nextFullName : null);
     upsertPresence({
       userId: user.id,
       isOnline: true,
@@ -58,7 +73,7 @@ export function RoomsHub({ email, initialRooms }: RoomsHubProps) {
     });
 
     setShowProfileModal(false);
-    setStatus('Global status updated.');
+    setStatus('Profile and global status updated.');
   };
 
   useEffect(() => setRooms(initialRooms), [initialRooms, setRooms]);
@@ -67,6 +82,28 @@ export function RoomsHub({ email, initialRooms }: RoomsHubProps) {
     () => [...rooms].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()),
     [rooms]
   );
+
+  useEffect(() => {
+    if (!showProfileModal) return;
+
+    const loadProfile = async () => {
+      const {
+        data: { user }
+      } = await supabase.auth.getUser();
+
+      if (!user) return;
+
+      const [{ data: profile }, { data: presence }] = await Promise.all([
+        supabase.from('profiles').select('full_name').eq('id', user.id).maybeSingle(),
+        supabase.from('presence_state').select('custom_status').eq('user_id', user.id).maybeSingle()
+      ]);
+
+      setFullName(profile?.full_name ?? '');
+      setCustomStatus(presence?.custom_status ?? '');
+    };
+
+    void loadProfile();
+  }, [showProfileModal, supabase]);
 
   const createRoom = async (event: FormEvent) => {
     event.preventDefault();
@@ -169,12 +206,19 @@ export function RoomsHub({ email, initialRooms }: RoomsHubProps) {
         <div className="fixed inset-0 z-30 flex items-end justify-center bg-black/60 p-4 sm:items-center">
           <form
             className="w-full max-w-md rounded-2xl border border-white/10 bg-[#0B0F19]/90 p-6 backdrop-blur-md"
-            onSubmit={saveCustomStatus}
+            onSubmit={saveProfile}
           >
             <h3 className="text-lg font-semibold">Profile &amp; Status</h3>
             <p className="mt-1 text-sm text-textMuted">{email ?? 'Signed-in user'}</p>
             <input
               className="mt-4 w-full rounded-xl border border-gray-300 bg-white px-4 py-2 text-black placeholder-gray-500 outline-none"
+              maxLength={80}
+              placeholder="Your name"
+              value={fullName}
+              onChange={(event) => setFullName(event.target.value)}
+            />
+            <input
+              className="mt-3 w-full rounded-xl border border-gray-300 bg-white px-4 py-2 text-black placeholder-gray-500 outline-none"
               maxLength={120}
               placeholder="Set a custom status"
               value={customStatus}
@@ -185,7 +229,7 @@ export function RoomsHub({ email, initialRooms }: RoomsHubProps) {
                 Cancel
               </button>
               <button className="rounded-xl border border-cyan-400/40 bg-cyan-500/20 px-4 py-2 text-sm" type="submit">
-                Save Status
+                Save
               </button>
             </div>
           </form>
