@@ -51,25 +51,7 @@ export default function RoomChatPage() {
   useEffect(() => {
     setActiveRoom(roomId);
 
-    const bootstrapRoom = async () => {
-      const {
-        data: { user }
-      } = await supabase.auth.getUser();
-      setCurrentUserId(user?.id ?? null);
-
-      const { data, error } = await supabase
-        .from('messages')
-        .select('*, profiles(full_name)')
-        .eq('room_id', roomId)
-        .order('created_at', { ascending: true });
-
-      if (error || !data) return;
-      (data as MessageRowWithProfile[]).forEach((row) => upsertMessage(mapMessage(row)));
-    };
-
-    void bootstrapRoom();
-
-    const channel = subscribeToRoomMessages(
+    const { channel, ready } = subscribeToRoomMessages(
       supabase,
       roomId,
       async (payload) => {
@@ -88,6 +70,30 @@ export default function RoomChatPage() {
         );
       }
     );
+
+    const bootstrapRoom = async () => {
+      const {
+        data: { user }
+      } = await supabase.auth.getUser();
+      setCurrentUserId(user?.id ?? null);
+
+      try {
+        await ready;
+      } catch {
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from('messages')
+        .select('*, profiles(full_name)')
+        .eq('room_id', roomId)
+        .order('created_at', { ascending: true });
+
+      if (error || !data) return;
+      (data as MessageRowWithProfile[]).forEach((row) => upsertMessage(mapMessage(row)));
+    };
+
+    void bootstrapRoom();
 
     return () => {
       setActiveRoom(null);
