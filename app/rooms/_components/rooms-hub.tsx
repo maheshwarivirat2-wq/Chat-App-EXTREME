@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { RoomSummary, useRoomsStore } from '@/stores/rooms-store';
 
@@ -73,9 +74,14 @@ export function RoomsHub({ email, initialRooms }: RoomsHubProps) {
           <h2 className="text-lg font-semibold">Your Rooms</h2>
           <ul className="mt-4 space-y-3">
             {sortedRooms.map((room) => (
-              <li key={room.id} className="rounded-xl border border-gray-200 bg-white p-4">
-                <p className="font-medium text-gray-900">{room.name}</p>
-                <p className="mt-1 text-xs text-gray-700">Code: {room.code}</p>
+              <li key={room.id}>
+                <Link
+                  className="block rounded-xl border border-gray-200 bg-white p-4 transition hover:border-indigo-300 hover:bg-indigo-50/70"
+                  href={`/rooms/${room.id}?name=${encodeURIComponent(room.name)}`}
+                >
+                  <p className="font-medium text-gray-900">{room.name}</p>
+                  <p className="mt-1 text-xs text-gray-700">Code: {room.code}</p>
+                </Link>
               </li>
             ))}
             {!sortedRooms.length ? <li className="text-sm text-textMuted">No rooms joined yet.</li> : null}
