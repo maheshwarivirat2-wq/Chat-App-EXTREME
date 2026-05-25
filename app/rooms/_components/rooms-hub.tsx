@@ -2,6 +2,8 @@
 
 import Link from 'next/link';
 import { FormEvent, useEffect, useMemo, useState } from 'react';
+import { createClient } from '@/lib/supabase/client';
+import { usePresenceStore } from '@/stores/presence-store';
 import { RoomSummary, useRoomsStore } from '@/stores/rooms-store';
 
 type RoomsHubProps = {
@@ -11,10 +13,53 @@ type RoomsHubProps = {
 
 export function RoomsHub({ email, initialRooms }: RoomsHubProps) {
   const { rooms, setRooms, addRoom } = useRoomsStore();
+  const { upsertPresence } = usePresenceStore();
+  const supabase = useMemo(() => createClient(), []);
   const [showModal, setShowModal] = useState(false);
+  const [showProfileModal, setShowProfileModal] = useState(false);
   const [newRoomName, setNewRoomName] = useState('');
   const [joinCode, setJoinCode] = useState('');
+  const [customStatus, setCustomStatus] = useState('');
   const [status, setStatus] = useState<string | null>(null);
+
+  const saveCustomStatus = async (event: FormEvent) => {
+    event.preventDefault();
+    setStatus(null);
+
+    const {
+      data: { user }
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      setStatus('Unable to save status. Please sign in again.');
+      return;
+    }
+
+    const nowIso = new Date().toISOString();
+    const nextStatus = customStatus.trim();
+
+    const { error } = await supabase.from('presence_state').upsert({
+      user_id: user.id,
+      is_online: true,
+      custom_status: nextStatus.length ? nextStatus : null,
+      last_seen_at: nowIso
+    });
+
+    if (error) {
+      setStatus(error.message);
+      return;
+    }
+
+    upsertPresence({
+      userId: user.id,
+      isOnline: true,
+      customStatus: nextStatus.length ? nextStatus : null,
+      lastSeenAt: nowIso
+    });
+
+    setShowProfileModal(false);
+    setStatus('Global status updated.');
+  };
 
   useEffect(() => setRooms(initialRooms), [initialRooms, setRooms]);
 
@@ -53,9 +98,19 @@ export function RoomsHub({ email, initialRooms }: RoomsHubProps) {
               <h1 className="text-2xl font-bold">Room Hub</h1>
               <p className="mt-1 text-sm text-textMuted">Signed in as {email}</p>
             </div>
-            <button className="glass rounded-xl px-4 py-2 text-sm hover:bg-surface" onClick={() => setShowModal(true)}>
-              + Create Room
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                aria-label="Open profile and status"
+                className="flex h-10 w-10 items-center justify-center rounded-full border border-white/20 bg-white/10 text-sm font-semibold uppercase text-white transition hover:bg-white/20"
+                onClick={() => setShowProfileModal(true)}
+                type="button"
+              >
+                {email?.[0] ?? 'U'}
+              </button>
+              <button className="glass rounded-xl px-4 py-2 text-sm hover:bg-surface" onClick={() => setShowModal(true)}>
+                + Create Room
+              </button>
+            </div>
           </div>
           <form className="mt-4 flex gap-3" onSubmit={joinRoom}>
             <input
@@ -105,6 +160,33 @@ export function RoomsHub({ email, initialRooms }: RoomsHubProps) {
                 Cancel
               </button>
               <button className="rounded-xl border border-cyan-400/40 bg-cyan-500/20 px-4 py-2 text-sm">Create</button>
+            </div>
+          </form>
+        </div>
+      ) : null}
+
+      {showProfileModal ? (
+        <div className="fixed inset-0 z-30 flex items-end justify-center bg-black/60 p-4 sm:items-center">
+          <form
+            className="w-full max-w-md rounded-2xl border border-white/10 bg-[#0B0F19]/90 p-6 backdrop-blur-md"
+            onSubmit={saveCustomStatus}
+          >
+            <h3 className="text-lg font-semibold">Profile &amp; Status</h3>
+            <p className="mt-1 text-sm text-textMuted">{email ?? 'Signed-in user'}</p>
+            <input
+              className="mt-4 w-full rounded-xl border border-gray-300 bg-white px-4 py-2 text-black placeholder-gray-500 outline-none"
+              maxLength={120}
+              placeholder="Set a custom status"
+              value={customStatus}
+              onChange={(event) => setCustomStatus(event.target.value)}
+            />
+            <div className="mt-4 flex justify-end gap-2">
+              <button className="rounded-xl px-4 py-2 text-sm text-textMuted" type="button" onClick={() => setShowProfileModal(false)}>
+                Cancel
+              </button>
+              <button className="rounded-xl border border-cyan-400/40 bg-cyan-500/20 px-4 py-2 text-sm" type="submit">
+                Save Status
+              </button>
             </div>
           </form>
         </div>
