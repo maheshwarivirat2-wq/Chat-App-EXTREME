@@ -58,7 +58,7 @@ export function RoomsHub({ email, initialRooms }: RoomsHubProps) {
           </div>
           <form className="mt-4 flex gap-3" onSubmit={joinRoom}>
             <input
-              className="w-full rounded-xl border border-borderSoft bg-surface/70 px-4 py-2 uppercase tracking-[0.2em] outline-none"
+              className="w-full rounded-xl border border-gray-300 bg-white px-4 py-2 uppercase tracking-[0.2em] text-black placeholder-gray-500 outline-none"
               maxLength={6}
               placeholder="Enter 6-char room code"
               value={joinCode}
@@ -73,9 +73,9 @@ export function RoomsHub({ email, initialRooms }: RoomsHubProps) {
           <h2 className="text-lg font-semibold">Your Rooms</h2>
           <ul className="mt-4 space-y-3">
             {sortedRooms.map((room) => (
-              <li key={room.id} className="rounded-xl border border-borderSoft bg-surface/60 p-4">
-                <p className="font-medium">{room.name}</p>
-                <p className="mt-1 text-xs text-textMuted">Code: {room.code}</p>
+              <li key={room.id} className="rounded-xl border border-gray-200 bg-white p-4">
+                <p className="font-medium text-gray-900">{room.name}</p>
+                <p className="mt-1 text-xs text-gray-700">Code: {room.code}</p>
               </li>
             ))}
             {!sortedRooms.length ? <li className="text-sm text-textMuted">No rooms joined yet.</li> : null}
@@ -88,7 +88,7 @@ export function RoomsHub({ email, initialRooms }: RoomsHubProps) {
           <form className="glass w-full max-w-md rounded-2xl p-6" onSubmit={createRoom}>
             <h3 className="text-lg font-semibold">Create a new room</h3>
             <input
-              className="mt-4 w-full rounded-xl border border-borderSoft bg-surface/70 px-4 py-2 outline-none"
+              className="mt-4 w-full rounded-xl border border-gray-300 bg-white px-4 py-2 text-black placeholder-gray-500 outline-none"
               maxLength={60}
               placeholder="Room name"
               value={newRoomName}
