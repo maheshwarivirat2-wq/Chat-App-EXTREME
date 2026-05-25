@@ -1,21 +1,125 @@
-import Link from 'next/link';
+'use client';
 
-type RoomChatPageProps = {
-  params: Promise<{ id: string }>;
-  searchParams?: Promise<{ name?: string }>;
+import Link from 'next/link';
+import { FormEvent, useEffect, useMemo, useState } from 'react';
+import { useParams, useSearchParams } from 'next/navigation';
+import type { RealtimePostgresInsertPayload } from '@supabase/supabase-js';
+import { createClient } from '@/lib/supabase/client';
+import { subscribeToRoomMessages } from '@/lib/realtime/messages-channel';
+import { useMessagesStore } from '@/stores/messages-store';
+import type { ChatMessage } from '@/lib/types/chat';
+
+type MessageRowWithProfile = {
+  id: string;
+  room_id: string;
+  sender_id: string;
+  body: string;
+  created_at: string;
+  profiles: { full_name: string | null } | null;
 };
 
-const demoMessages = [
-  { id: '1', sender: 'Ava', text: 'Hey team, ready for tonight?', isMe: false },
-  { id: '2', sender: 'Me', text: 'Yep, I am online and ready to go 🚀', isMe: true },
-  { id: '3', sender: 'Noah', text: 'I can join in 5 minutes.', isMe: false },
-  { id: '4', sender: 'Me', text: 'Perfect, we can start when you arrive.', isMe: true },
-  { id: '5', sender: 'Ava', text: 'Great, I will post updates in this room.', isMe: false }
-];
+type MessageInsertRow = {
+  id: string;
+  room_id: string;
+  sender_id: string;
+  body: string;
+  created_at: string;
+};
 
-export default async function RoomChatPage({ params, searchParams }: RoomChatPageProps) {
-  const [{ id }, resolvedSearchParams] = await Promise.all([params, searchParams]);
-  const roomName = resolvedSearchParams?.name?.trim() || `Room ${id.slice(0, 8)}`;
+const mapMessage = (row: MessageRowWithProfile): ChatMessage => ({
+  id: row.id,
+  roomId: row.room_id,
+  senderId: row.sender_id,
+  senderDisplayName: row.profiles?.full_name?.trim() || 'Unknown User',
+  body: row.body,
+  createdAt: row.created_at
+});
+
+export default function RoomChatPage() {
+  const params = useParams<{ id: string }>();
+  const searchParams = useSearchParams();
+  const roomId = params.id;
+  const roomName = searchParams.get('name')?.trim() || `Room ${roomId.slice(0, 8)}`;
+
+  const supabase = useMemo(() => createClient(), []);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [messageInput, setMessageInput] = useState('');
+  const [sendError, setSendError] = useState<string | null>(null);
+  const { byRoom, setActiveRoom, upsertMessage } = useMessagesStore();
+  const messages = byRoom[roomId] ?? [];
+
+  useEffect(() => {
+    setActiveRoom(roomId);
+
+    const bootstrapRoom = async () => {
+      const {
+        data: { user }
+      } = await supabase.auth.getUser();
+      setCurrentUserId(user?.id ?? null);
+
+      const { data, error } = await supabase
+        .from('messages')
+        .select('*, profiles(full_name)')
+        .eq('room_id', roomId)
+        .order('created_at', { ascending: true });
+
+      if (error || !data) return;
+      (data as MessageRowWithProfile[]).forEach((row) => upsertMessage(mapMessage(row)));
+    };
+
+    void bootstrapRoom();
+
+    const channel = subscribeToRoomMessages(
+      supabase,
+      roomId,
+      async (payload) => {
+        const inserted = (payload as RealtimePostgresInsertPayload<MessageInsertRow>).new;
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('full_name')
+          .eq('id', inserted.sender_id)
+          .maybeSingle();
+
+        upsertMessage(
+          mapMessage({
+            ...inserted,
+            profiles: { full_name: profile?.full_name ?? null }
+          })
+        );
+      }
+    );
+
+    return () => {
+      setActiveRoom(null);
+      void supabase.removeChannel(channel);
+    };
+  }, [roomId, setActiveRoom, supabase, upsertMessage]);
+
+  const sendMessage = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setSendError(null);
+
+    const body = messageInput.trim();
+    if (!body) return;
+
+    if (!currentUserId) {
+      setSendError('Unable to send message. Please sign in again.');
+      return;
+    }
+
+    const { error } = await supabase.from('messages').insert({
+      room_id: roomId,
+      sender_id: currentUserId,
+      body
+    });
+
+    if (error) {
+      setSendError(error.message);
+      return;
+    }
+
+    setMessageInput('');
+  };
 
   return (
     <main className="min-h-screen bg-[#0B0F19] text-white">
@@ -36,35 +140,42 @@ export default async function RoomChatPage({ params, searchParams }: RoomChatPag
       </header>
 
       <section className="mx-auto flex w-full max-w-4xl flex-col gap-3 px-3 pb-28 pt-4 sm:px-4">
-        {demoMessages.map((message) => (
-          <article key={message.id} className={`flex ${message.isMe ? 'justify-end' : 'justify-start'}`}>
-            <div className="max-w-[85%] sm:max-w-[72%]">
-              {!message.isMe ? <p className="mb-1 px-1 text-xs text-slate-400">{message.sender}</p> : null}
-              <div
-                className={`rounded-2xl px-4 py-2 text-sm leading-relaxed shadow-sm ${
-                  message.isMe
-                    ? 'rounded-br-md bg-indigo-500/90 text-indigo-50'
-                    : 'rounded-bl-md bg-slate-700/80 text-slate-100'
-                }`}
-              >
-                {message.text}
+        {messages.map((message) => {
+          const isMe = message.senderId === currentUserId;
+
+          return (
+            <article key={message.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
+              <div className="max-w-[85%] sm:max-w-[72%]">
+                {!isMe ? <p className="mb-1 px-1 text-xs text-slate-400">{message.senderDisplayName}</p> : null}
+                <div
+                  className={`rounded-2xl px-4 py-2 text-sm leading-relaxed shadow-sm ${
+                    isMe
+                      ? 'rounded-br-md bg-indigo-500/90 text-indigo-50'
+                      : 'rounded-bl-md bg-slate-700/80 text-slate-100'
+                  }`}
+                >
+                  {message.body}
+                </div>
               </div>
-            </div>
-          </article>
-        ))}
+            </article>
+          );
+        })}
       </section>
 
-      <form className="fixed bottom-0 left-0 right-0 z-20 border-t border-slate-800 bg-[#121826] px-3 py-3 sm:px-4">
+      <form className="fixed bottom-0 left-0 right-0 z-20 border-t border-slate-800 bg-[#121826] px-3 py-3 sm:px-4" onSubmit={sendMessage}>
         <div className="mx-auto flex w-full max-w-4xl items-center gap-2 sm:gap-3">
           <input
             className="w-full rounded-full border border-slate-300 bg-white px-4 py-2.5 text-sm text-black placeholder-gray-500 outline-none ring-indigo-500 transition focus:ring-2"
             placeholder="Write a message..."
             type="text"
+            value={messageInput}
+            onChange={(event) => setMessageInput(event.target.value)}
           />
-          <button className="rounded-full bg-indigo-500 px-4 py-2.5 text-sm font-semibold text-white hover:bg-indigo-400" type="button">
+          <button className="rounded-full bg-indigo-500 px-4 py-2.5 text-sm font-semibold text-white hover:bg-indigo-400" type="submit">
             Send
           </button>
         </div>
+        {sendError ? <p className="mx-auto mt-2 w-full max-w-4xl text-sm text-rose-300">{sendError}</p> : null}
       </form>
     </main>
   );
