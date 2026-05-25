@@ -40,7 +40,7 @@ type ThemeStyle = {
 };
 
 const ROOM_THEME_STYLES: Record<string, ThemeStyle> = {
-  default_dark: {
+  'neo-violet': {
     pageBg: 'bg-[#0B0F19]',
     headerBg: 'bg-[#121826]',
     border: 'border-slate-800',
@@ -48,21 +48,13 @@ const ROOM_THEME_STYLES: Record<string, ThemeStyle> = {
     otherBubble: 'bg-slate-700/80 text-slate-100',
     inputBg: 'bg-[#121826]'
   },
-  midnight_blue: {
-    pageBg: 'bg-[#091225]',
-    headerBg: 'bg-[#101B33]',
-    border: 'border-blue-900/70',
-    mineBubble: 'bg-blue-500/90 text-blue-50',
-    otherBubble: 'bg-blue-900/75 text-blue-50',
-    inputBg: 'bg-[#101B33]'
-  },
-  cyberpunk: {
-    pageBg: 'bg-[#140B20]',
-    headerBg: 'bg-[#1E1230]',
-    border: 'border-fuchsia-700/50',
-    mineBubble: 'bg-fuchsia-500/85 text-fuchsia-50',
-    otherBubble: 'bg-cyan-600/75 text-cyan-50',
-    inputBg: 'bg-[#1E1230]'
+  'neo-cyan': {
+    pageBg: 'bg-[#071821]',
+    headerBg: 'bg-[#0C2430]',
+    border: 'border-cyan-900/70',
+    mineBubble: 'bg-cyan-500/85 text-cyan-50',
+    otherBubble: 'bg-slate-700/80 text-slate-100',
+    inputBg: 'bg-[#0C2430]'
   }
 };
 
@@ -85,10 +77,10 @@ export default function RoomChatPage() {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [messageInput, setMessageInput] = useState('');
   const [sendError, setSendError] = useState<string | null>(null);
-  const [themeKey, setThemeKey] = useState<string>('default_dark');
+  const [themeKey, setThemeKey] = useState<string>('neo-violet');
   const { byRoom, setActiveRoom, upsertMessage } = useMessagesStore();
   const messages = byRoom[roomId] ?? [];
-  const theme = ROOM_THEME_STYLES[themeKey] ?? ROOM_THEME_STYLES.default_dark;
+  const theme = ROOM_THEME_STYLES[themeKey] ?? ROOM_THEME_STYLES['neo-violet'];
 
   useEffect(() => {
     setActiveRoom(roomId);
@@ -135,7 +127,7 @@ export default function RoomChatPage() {
       (data as MessageRowWithProfile[]).forEach((row) => upsertMessage(mapMessage(row)));
 
       const { data: roomTheme } = await supabase.from('rooms').select('theme_key').eq('id', roomId).maybeSingle();
-      setThemeKey((roomTheme as RoomThemeRow | null)?.theme_key ?? 'default_dark');
+      setThemeKey((roomTheme as RoomThemeRow | null)?.theme_key ?? 'neo-violet');
     };
 
     void bootstrapRoom();

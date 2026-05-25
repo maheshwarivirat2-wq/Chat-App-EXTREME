@@ -22,9 +22,8 @@ type MemberRow = {
 type ThemeOption = { key: string; label: string; description: string };
 
 const THEME_OPTIONS: ThemeOption[] = [
-  { key: 'default_dark', label: 'Default Dark', description: 'Balanced dark UI with indigo accents.' },
-  { key: 'midnight_blue', label: 'Midnight Blue', description: 'Deeper blues for calmer contrast.' },
-  { key: 'cyberpunk', label: 'Cyberpunk', description: 'Neon-inspired pink and teal palette.' }
+  { key: 'neo-violet', label: 'Neo Violet', description: 'High-contrast violet-forward neon dark theme.' },
+  { key: 'neo-cyan', label: 'Neo Cyan', description: 'Cool cyan-forward neon dark theme.' }
 ];
 
 export default function RoomSettingsPage() {
