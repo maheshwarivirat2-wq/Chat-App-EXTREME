@@ -26,6 +26,8 @@ type MessageInsertRow = {
   created_at: string;
 };
 
+type RoomTheme = 'neo-violet' | 'neo-cyan';
+
 const mapMessage = (row: MessageRowWithProfile): ChatMessage => ({
   id: row.id,
   roomId: row.room_id,
@@ -43,6 +45,7 @@ export default function RoomChatPage() {
 
   const supabase = useMemo(() => createClient(), []);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [themeKey, setThemeKey] = useState<RoomTheme>('neo-violet');
   const [messageInput, setMessageInput] = useState('');
   const [sendError, setSendError] = useState<string | null>(null);
   const { byRoom, setActiveRoom, upsertMessage } = useMessagesStore();
@@ -76,6 +79,11 @@ export default function RoomChatPage() {
         data: { user }
       } = await supabase.auth.getUser();
       setCurrentUserId(user?.id ?? null);
+
+      const { data: roomData } = await supabase.from('rooms').select('theme_key').eq('id', roomId).maybeSingle();
+      if (roomData?.theme_key === 'neo-cyan' || roomData?.theme_key === 'neo-violet') {
+        setThemeKey(roomData.theme_key);
+      }
 
       try {
         await ready;
@@ -127,21 +135,45 @@ export default function RoomChatPage() {
     setMessageInput('');
   };
 
+  const themeStyles =
+    themeKey === 'neo-cyan'
+      ? {
+          pageBg: 'bg-[#041923]',
+          headerBg: 'bg-[#0b2838]',
+          myBubble: 'rounded-br-md bg-cyan-500/85 text-cyan-50',
+          otherBubble: 'rounded-bl-md bg-slate-700/80 text-slate-100',
+          sendBtn: 'bg-cyan-500 hover:bg-cyan-400'
+        }
+      : {
+          pageBg: 'bg-[#0B0F19]',
+          headerBg: 'bg-[#121826]',
+          myBubble: 'rounded-br-md bg-indigo-500/90 text-indigo-50',
+          otherBubble: 'rounded-bl-md bg-slate-700/80 text-slate-100',
+          sendBtn: 'bg-indigo-500 hover:bg-indigo-400'
+        };
+
   return (
-    <main className="min-h-screen bg-[#0B0F19] text-white">
-      <header className="sticky top-0 z-20 border-b border-slate-800 bg-[#121826]">
+    <main className={`min-h-screen ${themeStyles.pageBg} text-white`}>
+      <header className={`sticky top-0 z-20 border-b border-slate-800 ${themeStyles.headerBg}`}>
         <div className="mx-auto flex h-14 w-full max-w-4xl items-center justify-between px-3 sm:px-4">
           <Link aria-label="Back to rooms" className="rounded-md p-2 text-xl text-slate-200 hover:bg-slate-700/50" href="/rooms">
             ←
           </Link>
 
-          <button className="max-w-[70%] truncate rounded-md px-3 py-1 text-base font-semibold text-slate-100 hover:bg-slate-700/50">
+          <Link
+            className="max-w-[70%] truncate rounded-md px-3 py-1 text-base font-semibold text-slate-100 hover:bg-slate-700/50"
+            href={`/rooms/${roomId}/settings`}
+          >
             {roomName}
-          </button>
+          </Link>
 
-          <button aria-label="Room settings" className="rounded-md p-2 text-xl leading-none text-slate-200 hover:bg-slate-700/50">
-            ⋮
-          </button>
+          <Link
+            aria-label="Room settings"
+            className="rounded-md p-2 text-xl leading-none text-slate-200 hover:bg-slate-700/50"
+            href={`/rooms/${roomId}/settings`}
+          >
+            ⚙
+          </Link>
         </div>
       </header>
 
@@ -156,8 +188,8 @@ export default function RoomChatPage() {
                 <div
                   className={`rounded-2xl px-4 py-2 text-sm leading-relaxed shadow-sm ${
                     isMe
-                      ? 'rounded-br-md bg-indigo-500/90 text-indigo-50'
-                      : 'rounded-bl-md bg-slate-700/80 text-slate-100'
+                      ? themeStyles.myBubble
+                      : themeStyles.otherBubble
                   }`}
                 >
                   {message.body}
@@ -168,7 +200,7 @@ export default function RoomChatPage() {
         })}
       </section>
 
-      <form className="fixed bottom-0 left-0 right-0 z-20 border-t border-slate-800 bg-[#121826] px-3 py-3 sm:px-4" onSubmit={sendMessage}>
+      <form className={`fixed bottom-0 left-0 right-0 z-20 border-t border-slate-800 ${themeStyles.headerBg} px-3 py-3 sm:px-4`} onSubmit={sendMessage}>
         <div className="mx-auto flex w-full max-w-4xl items-center gap-2 sm:gap-3">
           <input
             className="w-full rounded-full border border-slate-300 bg-white px-4 py-2.5 text-sm text-black placeholder-gray-500 outline-none ring-indigo-500 transition focus:ring-2"
@@ -177,7 +209,7 @@ export default function RoomChatPage() {
             value={messageInput}
             onChange={(event) => setMessageInput(event.target.value)}
           />
-          <button className="rounded-full bg-indigo-500 px-4 py-2.5 text-sm font-semibold text-white hover:bg-indigo-400" type="submit">
+          <button className={`rounded-full px-4 py-2.5 text-sm font-semibold text-white ${themeStyles.sendBtn}`} type="submit">
             Send
           </button>
         </div>
