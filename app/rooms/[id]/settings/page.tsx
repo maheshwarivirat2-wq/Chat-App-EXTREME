@@ -18,13 +18,18 @@ type MemberRow = {
     | {
         full_name: string | null;
         email: string | null;
+      }
+    | {
+        full_name: string | null;
+        email: string | null;
       }[]
     | null;
 };
 
 type PresenceRow = {
   user_id: string;
-  status: string | null;
+  is_online: boolean | null;
+  custom_status: string | null;
 };
 
 type MergedMember = {
@@ -77,7 +82,7 @@ export default function RoomSettingsPage() {
 
       const [membersResult, presenceResult] = await Promise.all([
         supabase.from('room_members').select('user_id, profiles(full_name, email)').eq('room_id', roomId),
-        supabase.from('presence_state').select('user_id, status')
+        supabase.from('presence_state').select('user_id, is_online, custom_status')
       ]);
 
       if (membersResult.error || !membersResult.data) {
@@ -87,12 +92,13 @@ export default function RoomSettingsPage() {
       const presenceByUser = new Map<string, string>();
       (presenceResult.data as PresenceRow[] | null)?.forEach((presence) => {
         if (presence.user_id) {
-          presenceByUser.set(presence.user_id, presence.status?.trim() || 'offline');
+          const customStatus = presence.custom_status?.trim();
+          presenceByUser.set(presence.user_id, customStatus || (presence.is_online ? 'online' : 'offline'));
         }
       });
 
       const mergedMembers: MergedMember[] = (membersResult.data as MemberRow[]).map((member) => {
-        const profile = member.profiles?.[0] ?? null;
+        const profile = Array.isArray(member.profiles) ? member.profiles[0] ?? null : member.profiles;
         const fullName = profile?.full_name?.trim() || 'Unknown User';
         return {
           id: member.user_id,
