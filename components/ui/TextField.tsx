@@ -19,7 +19,7 @@ export function TextField({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className="w-full rounded-xl border border-borderSoft bg-white/5 px-3 py-2.5 text-textPrimary outline-none ring-accentViolet/50 transition focus:ring"
+        className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2.5 text-black placeholder-gray-500 outline-none ring-accentViolet/50 transition focus:ring"
       />
     </label>
   );
