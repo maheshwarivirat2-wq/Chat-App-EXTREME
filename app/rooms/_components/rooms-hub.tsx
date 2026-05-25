@@ -2,6 +2,9 @@
 
 import Link from 'next/link';
 import { FormEvent, useEffect, useMemo, useState } from 'react';
+import { createClient } from '@/lib/supabase/client';
+import { useAuthStore } from '@/stores/auth-store';
+import { usePresenceStore } from '@/stores/presence-store';
 import { RoomSummary, useRoomsStore } from '@/stores/rooms-store';
 
 type RoomsHubProps = {
@@ -11,10 +14,67 @@ type RoomsHubProps = {
 
 export function RoomsHub({ email, initialRooms }: RoomsHubProps) {
   const { rooms, setRooms, addRoom } = useRoomsStore();
+  const { upsertPresence } = usePresenceStore();
+  const { setUserFullName } = useAuthStore();
+  const supabase = useMemo(() => createClient(), []);
   const [showModal, setShowModal] = useState(false);
+  const [showProfileModal, setShowProfileModal] = useState(false);
   const [newRoomName, setNewRoomName] = useState('');
   const [joinCode, setJoinCode] = useState('');
+  const [fullName, setFullName] = useState('');
+  const [customStatus, setCustomStatus] = useState('');
   const [status, setStatus] = useState<string | null>(null);
+
+  const saveProfile = async (event: FormEvent) => {
+    event.preventDefault();
+    setStatus(null);
+
+    const {
+      data: { user }
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      setStatus('Unable to save status. Please sign in again.');
+      return;
+    }
+
+    const nowIso = new Date().toISOString();
+    const nextStatus = customStatus.trim();
+    const nextFullName = fullName.trim();
+
+    const { error: profileError } = await supabase
+      .from('profiles')
+      .update({ full_name: nextFullName.length ? nextFullName : null })
+      .eq('id', user.id);
+
+    if (profileError) {
+      setStatus(profileError.message);
+      return;
+    }
+
+    const { error } = await supabase.from('presence_state').upsert({
+      user_id: user.id,
+      is_online: true,
+      custom_status: nextStatus.length ? nextStatus : null,
+      last_seen_at: nowIso
+    });
+
+    if (error) {
+      setStatus(error.message);
+      return;
+    }
+
+    setUserFullName(nextFullName.length ? nextFullName : null);
+    upsertPresence({
+      userId: user.id,
+      isOnline: true,
+      customStatus: nextStatus.length ? nextStatus : null,
+      lastSeenAt: nowIso
+    });
+
+    setShowProfileModal(false);
+    setStatus('Profile and global status updated.');
+  };
 
   useEffect(() => setRooms(initialRooms), [initialRooms, setRooms]);
 
@@ -22,6 +82,28 @@ export function RoomsHub({ email, initialRooms }: RoomsHubProps) {
     () => [...rooms].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()),
     [rooms]
   );
+
+  useEffect(() => {
+    if (!showProfileModal) return;
+
+    const loadProfile = async () => {
+      const {
+        data: { user }
+      } = await supabase.auth.getUser();
+
+      if (!user) return;
+
+      const [{ data: profile }, { data: presence }] = await Promise.all([
+        supabase.from('profiles').select('full_name').eq('id', user.id).maybeSingle(),
+        supabase.from('presence_state').select('custom_status').eq('user_id', user.id).maybeSingle()
+      ]);
+
+      setFullName(profile?.full_name ?? '');
+      setCustomStatus(presence?.custom_status ?? '');
+    };
+
+    void loadProfile();
+  }, [showProfileModal, supabase]);
 
   const createRoom = async (event: FormEvent) => {
     event.preventDefault();
@@ -53,9 +135,19 @@ export function RoomsHub({ email, initialRooms }: RoomsHubProps) {
               <h1 className="text-2xl font-bold">Room Hub</h1>
               <p className="mt-1 text-sm text-textMuted">Signed in as {email}</p>
             </div>
-            <button className="glass rounded-xl px-4 py-2 text-sm hover:bg-surface" onClick={() => setShowModal(true)}>
-              + Create Room
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                aria-label="Open profile and status"
+                className="flex h-10 w-10 items-center justify-center rounded-full border border-white/20 bg-white/10 text-sm font-semibold uppercase text-white transition hover:bg-white/20"
+                onClick={() => setShowProfileModal(true)}
+                type="button"
+              >
+                {email?.[0] ?? 'U'}
+              </button>
+              <button className="glass rounded-xl px-4 py-2 text-sm hover:bg-surface" onClick={() => setShowModal(true)}>
+                + Create Room
+              </button>
+            </div>
           </div>
           <form className="mt-4 flex gap-3" onSubmit={joinRoom}>
             <input
@@ -105,6 +197,40 @@ export function RoomsHub({ email, initialRooms }: RoomsHubProps) {
                 Cancel
               </button>
               <button className="rounded-xl border border-cyan-400/40 bg-cyan-500/20 px-4 py-2 text-sm">Create</button>
+            </div>
+          </form>
+        </div>
+      ) : null}
+
+      {showProfileModal ? (
+        <div className="fixed inset-0 z-30 flex items-end justify-center bg-black/60 p-4 sm:items-center">
+          <form
+            className="w-full max-w-md rounded-2xl border border-white/10 bg-[#0B0F19]/90 p-6 backdrop-blur-md"
+            onSubmit={saveProfile}
+          >
+            <h3 className="text-lg font-semibold">Profile &amp; Status</h3>
+            <p className="mt-1 text-sm text-textMuted">{email ?? 'Signed-in user'}</p>
+            <input
+              className="mt-4 w-full rounded-xl border border-gray-300 bg-white px-4 py-2 text-black placeholder-gray-500 outline-none"
+              maxLength={80}
+              placeholder="Your name"
+              value={fullName}
+              onChange={(event) => setFullName(event.target.value)}
+            />
+            <input
+              className="mt-3 w-full rounded-xl border border-gray-300 bg-white px-4 py-2 text-black placeholder-gray-500 outline-none"
+              maxLength={120}
+              placeholder="Set a custom status"
+              value={customStatus}
+              onChange={(event) => setCustomStatus(event.target.value)}
+            />
+            <div className="mt-4 flex justify-end gap-2">
+              <button className="rounded-xl px-4 py-2 text-sm text-textMuted" type="button" onClick={() => setShowProfileModal(false)}>
+                Cancel
+              </button>
+              <button className="rounded-xl border border-cyan-400/40 bg-cyan-500/20 px-4 py-2 text-sm" type="submit">
+                Save
+              </button>
             </div>
           </form>
         </div>
