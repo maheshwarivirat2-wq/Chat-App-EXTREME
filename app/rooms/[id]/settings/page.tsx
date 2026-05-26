@@ -67,7 +67,11 @@ export default function RoomSettingsPage() {
           .eq('room_id', roomId);
         if (membersError) throw membersError;
 
-        const { data: presenceData, error: presenceError } = await supabase.from('presence_state').select('user_id, last_seen_at, custom_status');
+        const memberIds = ((memberData ?? []) as Array<{ user_id: string }>).map((member) => member.user_id);
+        const { data: presenceData, error: presenceError } = await supabase
+          .from('presence_state')
+          .select('user_id, last_seen_at, custom_status')
+          .in('user_id', memberIds);
         if (presenceError) throw presenceError;
 
         const presenceByUserId = new Map((presenceData ?? []).map((presence) => [presence.user_id, presence]));
@@ -166,9 +170,10 @@ export default function RoomSettingsPage() {
                   onClick={async () => {
                     setRawError(null);
                     try {
-                      const { error } = await supabase.from('rooms').update({ theme_key: theme }).eq('id', roomId);
+                      const { data, error } = await supabase.from('rooms').update({ theme_key: theme }).eq('id', roomId).select().single();
                       if (error) throw error;
-                      setSelectedTheme(theme);
+                      if (!data) throw new Error('No rows were updated for the selected theme.');
+                      setSelectedTheme((data as RoomRow).theme_key && themes.includes((data as RoomRow).theme_key as (typeof themes)[number]) ? ((data as RoomRow).theme_key as (typeof themes)[number]) : theme);
                       router.refresh();
                     } catch (error) {
                       setRawError((error as { message?: string })?.message || String(error));
