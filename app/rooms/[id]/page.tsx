@@ -1,13 +1,14 @@
 'use client';
 
 import Link from 'next/link';
-import { FormEvent, useEffect, useMemo, useState } from 'react';
+import { CSSProperties, FormEvent, useEffect, useMemo, useState } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
 import type { RealtimePostgresInsertPayload } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/client';
 import { subscribeToRoomMessages } from '@/lib/realtime/messages-channel';
 import { useMessagesStore } from '@/stores/messages-store';
 import type { ChatMessage } from '@/lib/types/chat';
+import { ThemePresetKey, themePresets } from '@/lib/theme/tokens';
 
 type MessageRowWithProfile = {
   id: string;
@@ -24,6 +25,10 @@ type MessageInsertRow = {
   sender_id: string;
   body: string;
   created_at: string;
+};
+
+type RoomThemeRow = {
+  theme_key: ThemePresetKey | null;
 };
 
 const mapMessage = (row: MessageRowWithProfile): ChatMessage => ({
@@ -45,8 +50,10 @@ export default function RoomChatPage() {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [messageInput, setMessageInput] = useState('');
   const [sendError, setSendError] = useState<string | null>(null);
+  const [themeKey, setThemeKey] = useState<ThemePresetKey>('neo-violet');
   const { byRoom, setActiveRoom, upsertMessage } = useMessagesStore();
   const messages = byRoom[roomId] ?? [];
+  const theme = themePresets[themeKey];
 
   useEffect(() => {
     setActiveRoom(roomId);
@@ -81,6 +88,12 @@ export default function RoomChatPage() {
         await ready;
       } catch {
         return;
+      }
+
+      const { data: roomData } = await supabase.from('rooms').select('theme_key').eq('id', roomId).maybeSingle();
+      const roomTheme = (roomData as RoomThemeRow | null)?.theme_key;
+      if (roomTheme && roomTheme in themePresets) {
+        setThemeKey(roomTheme as ThemePresetKey);
       }
 
       const { data, error } = await supabase
@@ -158,10 +171,9 @@ export default function RoomChatPage() {
                 {!isMe ? <p className="mb-1 px-1 text-xs text-slate-400">{message.senderDisplayName}</p> : null}
                 <div
                   className={`rounded-2xl px-4 py-2 text-sm leading-relaxed shadow-sm ${
-                    isMe
-                      ? 'rounded-br-md bg-indigo-500/90 text-indigo-50'
-                      : 'rounded-bl-md bg-slate-700/80 text-slate-100'
+                    isMe ? 'rounded-br-md text-white' : 'rounded-bl-md bg-slate-700/80 text-slate-100'
                   }`}
+                  style={isMe ? { backgroundColor: theme.accent } : undefined}
                 >
                   {message.body}
                 </div>
@@ -174,13 +186,14 @@ export default function RoomChatPage() {
       <form className="fixed bottom-0 left-0 right-0 z-20 border-t border-slate-800 bg-[#121826] px-3 py-3 sm:px-4" onSubmit={sendMessage}>
         <div className="mx-auto flex w-full max-w-4xl items-center gap-2 sm:gap-3">
           <input
-            className="w-full rounded-full border border-slate-300 bg-white px-4 py-2.5 text-sm text-black placeholder-gray-500 outline-none ring-indigo-500 transition focus:ring-2"
+            className="w-full rounded-full border border-slate-300 bg-white px-4 py-2.5 text-sm text-black placeholder-gray-500 outline-none transition focus:ring-2"
             placeholder="Write a message..."
             type="text"
             value={messageInput}
             onChange={(event) => setMessageInput(event.target.value)}
+            style={{ '--tw-ring-color': theme.accent } as CSSProperties}
           />
-          <button className="rounded-full bg-indigo-500 px-4 py-2.5 text-sm font-semibold text-white hover:bg-indigo-400" type="submit">
+          <button className="rounded-full px-4 py-2.5 text-sm font-semibold text-white" style={{ backgroundColor: theme.accent }} type="submit">
             Send
           </button>
         </div>
