@@ -5,11 +5,11 @@ import { useParams } from 'next/navigation';
 import { useMemo, useState } from 'react';
 
 const dummyMembers = [
-  { full_name: 'Avery Brooks', custom_status: 'Reviewing notes' },
-  { full_name: 'Mina Patel', custom_status: 'On a quick break' },
-  { full_name: 'Jordan Kim', custom_status: 'Focused mode' },
-  { full_name: 'Elena Rivera', custom_status: 'Ready to brainstorm' },
-  { full_name: 'Noah Chen', custom_status: 'Wrapping up tasks' }
+  { profiles: { full_name: 'Avery Brooks' }, custom_status: 'Reviewing notes' },
+  { profiles: { full_name: 'Mina Patel' }, custom_status: 'On a quick break' },
+  { profiles: { full_name: 'Jordan Kim' }, custom_status: 'Focused mode' },
+  { profiles: { full_name: 'Elena Rivera' }, custom_status: 'Ready to brainstorm' },
+  { profiles: { full_name: 'Noah Chen' }, custom_status: 'Wrapping up tasks' }
 ] as const;
 
 const themes = ['neo-violet', 'neo-cyan'] as const;
@@ -70,12 +70,12 @@ export default function RoomSettingsPage() {
           <h2 className="text-lg font-semibold text-slate-100">Members</h2>
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
             {dummyMembers.map((member) => (
-              <div key={member.full_name} className="flex items-center gap-3 rounded-xl border border-slate-700 bg-slate-800/70 p-3">
+              <div key={member.profiles.full_name} className="flex items-center gap-3 rounded-xl border border-slate-700 bg-slate-800/70 p-3">
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-indigo-500 text-sm font-bold text-white">
-                  {member.full_name.charAt(0).toUpperCase()}
+                  {member.profiles.full_name.charAt(0).toUpperCase()}
                 </div>
                 <div className="min-w-0">
-                  <p className="truncate font-medium text-slate-100">{member.full_name}</p>
+                  <p className="truncate font-medium text-slate-100">{member.profiles.full_name}</p>
                   <p className="truncate text-sm text-slate-400">{member.custom_status}</p>
                 </div>
               </div>
