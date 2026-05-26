@@ -110,7 +110,12 @@ export function RoomsHub({ email, initialRooms }: RoomsHubProps) {
     const response = await fetch('/api/rooms', { method: 'POST', body: JSON.stringify({ name: newRoomName }) });
     const payload = await response.json();
     if (!response.ok) return setStatus(payload.error ?? 'Failed to create room.');
-    addRoom(payload.room);
+    addRoom({
+      ...payload.room,
+      lastReadAt: null,
+      latestMessageCreatedAt: null,
+      hasUnread: false
+    });
     setNewRoomName('');
     setShowModal(false);
     setStatus(`Created ${payload.room.name} (${payload.room.code}).`);
@@ -121,7 +126,12 @@ export function RoomsHub({ email, initialRooms }: RoomsHubProps) {
     const response = await fetch('/api/rooms/join', { method: 'POST', body: JSON.stringify({ code: joinCode }) });
     const payload = await response.json();
     if (!response.ok) return setStatus(payload.error ?? 'Failed to join room.');
-    addRoom(payload.room);
+    addRoom({
+      ...payload.room,
+      lastReadAt: null,
+      latestMessageCreatedAt: null,
+      hasUnread: false
+    });
     setJoinCode('');
     setStatus(`Joined ${payload.room.name} (${payload.room.code}).`);
   };
@@ -171,7 +181,10 @@ export function RoomsHub({ email, initialRooms }: RoomsHubProps) {
                   className="block rounded-xl border border-gray-200 bg-white p-4 transition hover:border-indigo-300 hover:bg-indigo-50/70"
                   href={`/rooms/${room.id}?name=${encodeURIComponent(room.name)}`}
                 >
-                  <p className="font-medium text-gray-900">{room.name}</p>
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="font-medium text-gray-900">{room.name}</p>
+                    {room.hasUnread ? <span className="h-3 w-3 rounded-full bg-cyan-500 shadow-[0_0_10px_rgba(6,182,212,0.95)] animate-pulse" /> : null}
+                  </div>
                   <p className="mt-1 text-xs text-gray-700">Code: {room.code}</p>
                 </Link>
               </li>

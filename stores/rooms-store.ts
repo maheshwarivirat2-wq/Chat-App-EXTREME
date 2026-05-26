@@ -8,6 +8,9 @@ export type RoomSummary = {
   code: string;
   ownerId: string;
   createdAt: string;
+  lastReadAt: string | null;
+  latestMessageCreatedAt: string | null;
+  hasUnread: boolean;
 };
 
 type RoomsState = {

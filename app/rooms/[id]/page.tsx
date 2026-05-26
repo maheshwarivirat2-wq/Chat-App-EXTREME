@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { FormEvent, useEffect, useMemo, useState } from 'react';
+import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
 import type { RealtimePostgresInsertPayload } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/client';
@@ -49,6 +49,7 @@ export default function RoomChatPage() {
 
   const supabase = useMemo(() => createClient(), []);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const currentUserIdRef = useRef<string | null>(null);
   const [messageInput, setMessageInput] = useState('');
   const [sendError, setSendError] = useState<string | null>(null);
   const [themeKey, setThemeKey] = useState<ThemePresetKey>('neo-violet');
@@ -81,6 +82,14 @@ export default function RoomChatPage() {
           sendButton: 'bg-indigo-500 text-white hover:bg-indigo-400'
         };
 
+  const updateLastReadAt = async (userId: string) => {
+    await supabase
+      .from('room_members')
+      .update({ last_read_at: new Date().toISOString() })
+      .eq('room_id', roomId)
+      .eq('user_id', userId);
+  };
+
   useEffect(() => {
     setActiveRoom(roomId);
 
@@ -101,6 +110,10 @@ export default function RoomChatPage() {
             profiles: { full_name: profile?.full_name ?? null }
           })
         );
+
+        if (currentUserIdRef.current) {
+          await updateLastReadAt(currentUserIdRef.current);
+        }
       }
     );
 
@@ -109,6 +122,10 @@ export default function RoomChatPage() {
         data: { user }
       } = await supabase.auth.getUser();
       setCurrentUserId(user?.id ?? null);
+      currentUserIdRef.current = user?.id ?? null;
+      if (user?.id) {
+        await updateLastReadAt(user.id);
+      }
 
       try {
         await ready;
