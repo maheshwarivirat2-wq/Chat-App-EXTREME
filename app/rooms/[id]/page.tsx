@@ -135,9 +135,12 @@ export default function RoomChatPage() {
             ←
           </Link>
 
-          <button className="max-w-[70%] truncate rounded-md px-3 py-1 text-base font-semibold text-slate-100 hover:bg-slate-700/50">
+          <Link
+            className="max-w-[70%] truncate rounded-md px-3 py-1 text-base font-semibold text-slate-100 hover:bg-slate-700/50"
+            href={`/rooms/${roomId}/settings`}
+          >
             {roomName}
-          </button>
+          </Link>
 
           <button aria-label="Room settings" className="rounded-md p-2 text-xl leading-none text-slate-200 hover:bg-slate-700/50">
             ⋮
