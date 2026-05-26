@@ -58,57 +58,76 @@ export default function RoomSettingsPage() {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [isCopied, setIsCopied] = useState(false);
   const [copyError, setCopyError] = useState<string | null>(null);
+  const [pageError, setPageError] = useState<string | null>(null);
   const [saveThemeError, setSaveThemeError] = useState<string | null>(null);
   const [leaveError, setLeaveError] = useState<string | null>(null);
 
   useEffect(() => {
     const loadData = async () => {
-      const {
-        data: { user }
-      } = await supabase.auth.getUser();
-      setCurrentUserId(user?.id ?? null);
+      try {
+        setPageError(null);
+        const {
+          data: { user }
+        } = await supabase.auth.getUser();
+        setCurrentUserId(user?.id ?? null);
 
-      const { data: roomData, error: roomError } = await supabase
-        .from('rooms')
-        .select('id, name, code, theme_key')
-        .eq('id', roomId)
-        .maybeSingle();
+        const { data: roomData, error: roomError } = await supabase
+          .from('rooms')
+          .select('id, name, code, theme_key')
+          .eq('id', roomId)
+          .maybeSingle();
 
-      if (roomError || !roomData) {
-        return;
-      }
-
-      setRoom(roomData as RoomRow);
-
-      const [membersResult, presenceResult] = await Promise.all([
-        supabase.from('room_members').select('user_id, profiles(full_name, email)').eq('room_id', roomId),
-        supabase.from('presence_state').select('user_id, is_online, custom_status')
-      ]);
-
-      if (membersResult.error || !membersResult.data) {
-        return;
-      }
-
-      const presenceByUser = new Map<string, string>();
-      (presenceResult.data as PresenceRow[] | null)?.forEach((presence) => {
-        if (presence.user_id) {
-          const customStatus = presence.custom_status?.trim();
-          presenceByUser.set(presence.user_id, customStatus || (presence.is_online ? 'online' : 'offline'));
+        if (roomError) {
+          throw roomError;
         }
-      });
 
-      const mergedMembers: MergedMember[] = (membersResult.data as MemberRow[]).map((member) => {
-        const profile = Array.isArray(member.profiles) ? member.profiles[0] ?? null : member.profiles;
-        const fullName = profile?.full_name?.trim() || 'Unknown User';
-        return {
-          id: member.user_id,
-          fullName,
-          email: profile?.email?.trim() || 'No email',
-          status: presenceByUser.get(member.user_id) || 'offline'
-        };
-      });
+        if (!roomData) {
+          throw new Error('Room not found.');
+        }
 
-      setMembers(mergedMembers);
+        setRoom(roomData as RoomRow);
+
+        const [membersResult, presenceResult] = await Promise.all([
+          supabase.from('room_members').select('user_id, profiles(full_name, email)').eq('room_id', roomId),
+          supabase.from('presence_state').select('user_id, is_online, custom_status')
+        ]);
+
+        if (membersResult.error) {
+          throw membersResult.error;
+        }
+
+        if (presenceResult.error) {
+          throw presenceResult.error;
+        }
+
+        if (!membersResult.data) {
+          throw new Error('Unable to load room members.');
+        }
+
+        const presenceByUser = new Map<string, string>();
+        (presenceResult.data as PresenceRow[] | null)?.forEach((presence) => {
+          if (presence.user_id) {
+            const customStatus = presence.custom_status?.trim();
+            presenceByUser.set(presence.user_id, customStatus || (presence.is_online ? 'online' : 'offline'));
+          }
+        });
+
+        const mergedMembers: MergedMember[] = (membersResult.data as MemberRow[]).map((member) => {
+          const profile = Array.isArray(member.profiles) ? member.profiles[0] ?? null : member.profiles;
+          const fullName = profile?.full_name?.trim() || 'Unknown User';
+          return {
+            id: member.user_id,
+            fullName,
+            email: profile?.email?.trim() || 'No email',
+            status: presenceByUser.get(member.user_id) || 'offline'
+          };
+        });
+
+        setMembers(mergedMembers);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Failed to load room settings.';
+        setPageError(message);
+      }
     };
 
     void loadData();
@@ -129,15 +148,22 @@ export default function RoomSettingsPage() {
 
   const handleThemeChange = async (nextTheme: (typeof THEMES)[number]) => {
     setSaveThemeError(null);
+    setPageError(null);
 
     const previousTheme = room?.theme_key ?? 'neo-violet';
     setRoom((prev) => (prev ? { ...prev, theme_key: nextTheme } : prev));
 
-    const { error } = await supabase.from('rooms').update({ theme_key: nextTheme }).eq('id', roomId);
-
-    if (error) {
+    try {
+      const { error } = await supabase.from('rooms').update({ theme_key: nextTheme }).eq('id', roomId);
+      if (error) {
+        throw error;
+      }
+      router.refresh();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unable to update room theme.';
       setRoom((prev) => (prev ? { ...prev, theme_key: previousTheme } : prev));
-      setSaveThemeError(error.message);
+      setSaveThemeError(message);
+      setPageError(message);
     }
   };
 
@@ -148,18 +174,28 @@ export default function RoomSettingsPage() {
     }
 
     setLeaveError(null);
-    const { error } = await supabase.from('room_members').delete().eq('room_id', roomId).eq('user_id', currentUserId);
+    setPageError(null);
 
-    if (error) {
-      setLeaveError(error.message);
-      return;
+    try {
+      const { error } = await supabase.from('room_members').delete().eq('room_id', roomId).eq('user_id', currentUserId);
+      if (error) {
+        throw error;
+      }
+      router.push('/rooms');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unable to leave room.';
+      setLeaveError(message);
+      setPageError(message);
     }
-
-    router.push('/rooms');
   };
 
   return (
     <main className="min-h-screen bg-[#0B0F19] text-white">
+      {pageError ? (
+        <div className="sticky top-0 z-50 border-b-2 border-rose-200 bg-rose-700 px-4 py-3 text-sm font-semibold text-white">
+          {pageError}
+        </div>
+      ) : null}
       <header className="sticky top-0 z-20 border-b border-slate-800 bg-[#121826]">
         <div className="mx-auto flex h-14 w-full max-w-4xl items-center justify-between px-3 sm:px-4">
           <Link className="rounded-md p-2 text-xl text-slate-200 hover:bg-slate-700/50" href={`/rooms/${roomId}${room?.name ? `?name=${encodeURIComponent(room.name)}` : ''}`}>
