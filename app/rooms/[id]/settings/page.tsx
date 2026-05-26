@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useParams } from 'next/navigation';
 import { useMemo, useState } from 'react';
 
 const dummyMembers = [
@@ -14,6 +15,7 @@ const dummyMembers = [
 const themes = ['neo-violet', 'neo-cyan'] as const;
 
 export default function RoomSettingsPage() {
+  const params = useParams<{ id: string }>();
   const [isCopied, setIsCopied] = useState(false);
   const [selectedTheme, setSelectedTheme] = useState<(typeof themes)[number]>('neo-violet');
 
@@ -58,7 +60,7 @@ export default function RoomSettingsPage() {
                 </button>
               </div>
             </div>
-            <Link className="rounded-md border border-slate-700 px-3 py-1.5 text-sm text-slate-200 hover:bg-slate-700/50" href="../">
+            <Link className="rounded-md border border-slate-700 px-3 py-1.5 text-sm text-slate-200 hover:bg-slate-700/50" href={`/rooms/${params.id}`}>
               Back
             </Link>
           </div>
