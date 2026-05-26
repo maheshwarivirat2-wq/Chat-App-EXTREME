@@ -1,32 +1,92 @@
 'use client';
 
 import Link from 'next/link';
-import { useParams } from 'next/navigation';
-import { useMemo, useState } from 'react';
+import { useParams, useRouter } from 'next/navigation';
+import { useEffect, useMemo, useState } from 'react';
+import { createClient } from '@/lib/supabase/client';
 
-type DummyRoomMember = {
+type RoomMember = {
+  user_id: string;
   profiles: { full_name: string };
   custom_status: string;
-  is_online: boolean;
 };
 
-const dummyMembers: DummyRoomMember[] = [
-  { profiles: { full_name: 'Avery Brooks' }, custom_status: 'Reviewing notes', is_online: true },
-  { profiles: { full_name: 'Mina Patel' }, custom_status: 'On a quick break', is_online: false },
-  { profiles: { full_name: 'Jordan Kim' }, custom_status: 'Focused mode', is_online: true },
-  { profiles: { full_name: 'Elena Rivera' }, custom_status: 'Ready to brainstorm', is_online: true },
-  { profiles: { full_name: 'Noah Chen' }, custom_status: 'Wrapping up tasks', is_online: false }
-];
+type RoomRow = {
+  name: string;
+  code: string;
+  theme_key: (typeof themes)[number] | null;
+};
+type MemberRow = {
+  user_id: string;
+  profiles: { full_name: string | null } | null;
+};
 
 const themes = ['neo-violet', 'neo-cyan'] as const;
 
 export default function RoomSettingsPage() {
   const params = useParams<{ id: string }>();
+  const router = useRouter();
+  const roomId = params.id;
+  const supabase = useMemo(() => createClient(), []);
   const [isCopied, setIsCopied] = useState(false);
   const [selectedTheme, setSelectedTheme] = useState<(typeof themes)[number]>('neo-violet');
+  const [roomName, setRoomName] = useState('Room');
+  const [roomCode, setRoomCode] = useState('----');
+  const [members, setMembers] = useState<RoomMember[]>([]);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [rawError, setRawError] = useState<string | null>(null);
 
-  const roomName = 'Study Group Alpha';
-  const roomCode = 'X7B9Q2';
+  useEffect(() => {
+    const loadSettings = async () => {
+      setRawError(null);
+      try {
+        const {
+          data: { user },
+          error: authError
+        } = await supabase.auth.getUser();
+        if (authError) throw authError;
+        setCurrentUserId(user?.id ?? null);
+
+        const { data: roomData, error: roomError } = await supabase
+          .from('rooms')
+          .select('name, code, theme_key')
+          .eq('id', roomId)
+          .single();
+        if (roomError) throw roomError;
+
+        const room = roomData as RoomRow;
+        setRoomName(room.name);
+        setRoomCode(room.code);
+        if (room.theme_key && themes.includes(room.theme_key)) {
+          setSelectedTheme(room.theme_key);
+        }
+
+        const { data: memberData, error: membersError } = await supabase
+          .from('room_members')
+          .select('user_id, profiles(full_name)')
+          .eq('room_id', roomId);
+        if (membersError) throw membersError;
+
+        const { data: presenceData, error: presenceError } = await supabase.from('presence_state').select('user_id, last_seen_at, custom_status');
+        if (presenceError) throw presenceError;
+
+        const presenceByUserId = new Map((presenceData ?? []).map((presence) => [presence.user_id, presence]));
+        const mergedMembers: RoomMember[] = ((memberData ?? []) as unknown as MemberRow[]).map((member) => {
+          const presence = presenceByUserId.get(member.user_id);
+          return {
+            user_id: member.user_id,
+            profiles: { full_name: member.profiles?.full_name?.trim() || 'Unknown User' },
+            custom_status: presence?.custom_status?.trim() || 'No status set'
+          };
+        });
+        setMembers(mergedMembers);
+      } catch (error) {
+        setRawError((error as { message?: string })?.message || String(error));
+      }
+    };
+
+    void loadSettings();
+  }, [roomId, supabase]);
 
   const themeStyles = useMemo(
     () => ({
@@ -49,6 +109,7 @@ export default function RoomSettingsPage() {
 
   return (
     <main className="min-h-screen bg-[#0B0F19] text-white">
+      {rawError ? <div className="sticky top-0 z-50 w-full bg-red-700 px-4 py-3 text-sm font-semibold text-white">{rawError}</div> : null}
       <div className="mx-auto flex min-h-screen w-full max-w-4xl flex-col px-4 pb-8 pt-6 sm:px-6">
         <header className="rounded-2xl border border-slate-700/70 bg-slate-900/60 p-5 shadow-lg shadow-black/20 backdrop-blur">
           <div className="flex items-start justify-between gap-3">
@@ -75,8 +136,8 @@ export default function RoomSettingsPage() {
         <section className="mt-6 rounded-2xl border border-slate-700/70 bg-slate-900/50 p-5">
           <h2 className="text-lg font-semibold text-slate-100">Members</h2>
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
-            {dummyMembers.map((member) => (
-              <div key={member.profiles.full_name} className="flex items-center gap-3 rounded-xl border border-slate-700 bg-slate-800/70 p-3">
+            {members.map((member) => (
+              <div key={member.user_id} className="flex items-center gap-3 rounded-xl border border-slate-700 bg-slate-800/70 p-3">
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-indigo-500 text-sm font-bold text-white">
                   {member.profiles.full_name.charAt(0).toUpperCase()}
                 </div>
@@ -102,7 +163,17 @@ export default function RoomSettingsPage() {
                     isSelected ? themeStyles[theme] : 'border-slate-700 bg-slate-800/70 text-slate-300 hover:bg-slate-700/70'
                   }`}
                   type="button"
-                  onClick={() => setSelectedTheme(theme)}
+                  onClick={async () => {
+                    setRawError(null);
+                    try {
+                      const { error } = await supabase.from('rooms').update({ theme_key: theme }).eq('id', roomId);
+                      if (error) throw error;
+                      setSelectedTheme(theme);
+                      router.refresh();
+                    } catch (error) {
+                      setRawError((error as { message?: string })?.message || String(error));
+                    }
+                  }}
                 >
                   <p className="font-semibold">{theme}</p>
                   <p className="mt-1 text-xs opacity-85">{isSelected ? 'Selected' : 'Click to preview selection'}</p>
@@ -116,7 +187,17 @@ export default function RoomSettingsPage() {
           <button
             className="w-full rounded-xl bg-rose-600 px-4 py-3 text-sm font-semibold text-white shadow-md shadow-rose-900/40 transition hover:bg-rose-500"
             type="button"
-            onClick={() => console.log('Leave clicked')}
+            onClick={async () => {
+              if (!currentUserId) return;
+              setRawError(null);
+              try {
+                const { error } = await supabase.from('room_members').delete().eq('room_id', roomId).eq('user_id', currentUserId);
+                if (error) throw error;
+                router.push('/rooms');
+              } catch (error) {
+                setRawError((error as { message?: string })?.message || String(error));
+              }
+            }}
           >
             Leave Room
           </button>
