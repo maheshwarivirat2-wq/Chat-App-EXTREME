@@ -4,13 +4,19 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useMemo, useState } from 'react';
 
-const dummyMembers = [
-  { profiles: { full_name: 'Avery Brooks' }, custom_status: 'Reviewing notes' },
-  { profiles: { full_name: 'Mina Patel' }, custom_status: 'On a quick break' },
-  { profiles: { full_name: 'Jordan Kim' }, custom_status: 'Focused mode' },
-  { profiles: { full_name: 'Elena Rivera' }, custom_status: 'Ready to brainstorm' },
-  { profiles: { full_name: 'Noah Chen' }, custom_status: 'Wrapping up tasks' }
-] as const;
+type DummyRoomMember = {
+  profiles: { full_name: string };
+  custom_status: string;
+  is_online: boolean;
+};
+
+const dummyMembers: DummyRoomMember[] = [
+  { profiles: { full_name: 'Avery Brooks' }, custom_status: 'Reviewing notes', is_online: true },
+  { profiles: { full_name: 'Mina Patel' }, custom_status: 'On a quick break', is_online: false },
+  { profiles: { full_name: 'Jordan Kim' }, custom_status: 'Focused mode', is_online: true },
+  { profiles: { full_name: 'Elena Rivera' }, custom_status: 'Ready to brainstorm', is_online: true },
+  { profiles: { full_name: 'Noah Chen' }, custom_status: 'Wrapping up tasks', is_online: false }
+];
 
 const themes = ['neo-violet', 'neo-cyan'] as const;
 
