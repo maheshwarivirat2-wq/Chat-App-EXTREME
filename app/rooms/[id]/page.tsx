@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { CSSProperties, FormEvent, useEffect, useMemo, useState } from 'react';
+import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
 import type { RealtimePostgresInsertPayload } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/client';
@@ -53,7 +53,32 @@ export default function RoomChatPage() {
   const [themeKey, setThemeKey] = useState<ThemePresetKey>('neo-violet');
   const { byRoom, setActiveRoom, upsertMessage } = useMessagesStore();
   const messages = byRoom[roomId] ?? [];
-  const theme = themePresets[themeKey];
+  const chatThemeClasses =
+    themeKey === 'neo-cyan'
+      ? {
+          mainBg: 'bg-cyan-950',
+          headerBg: 'bg-cyan-950',
+          headerBorder: 'border-cyan-900',
+          myBubble: 'rounded-br-md bg-cyan-400 text-cyan-950',
+          otherBubble: 'rounded-bl-md bg-slate-800 text-cyan-50',
+          senderName: 'text-cyan-200/80',
+          formBg: 'bg-cyan-950',
+          formBorder: 'border-cyan-900',
+          input: 'border-cyan-800 bg-slate-900 text-white placeholder-cyan-200/60 focus:ring-cyan-400',
+          sendButton: 'bg-cyan-500 text-cyan-950 hover:bg-cyan-400'
+        }
+      : {
+          mainBg: 'bg-[#0B0F19]',
+          headerBg: 'bg-[#121826]',
+          headerBorder: 'border-slate-800',
+          myBubble: 'rounded-br-md bg-indigo-500/90 text-indigo-50',
+          otherBubble: 'rounded-bl-md bg-slate-700/80 text-slate-100',
+          senderName: 'text-slate-400',
+          formBg: 'bg-[#121826]',
+          formBorder: 'border-slate-800',
+          input: 'border-slate-300 bg-white text-black placeholder-gray-500 focus:ring-indigo-500',
+          sendButton: 'bg-indigo-500 text-white hover:bg-indigo-400'
+        };
 
   useEffect(() => {
     setActiveRoom(roomId);
@@ -141,8 +166,8 @@ export default function RoomChatPage() {
   };
 
   return (
-    <main className="min-h-screen bg-[#0B0F19] text-white">
-      <header className="sticky top-0 z-20 border-b border-slate-800 bg-[#121826]">
+    <main className={`min-h-screen text-white ${chatThemeClasses.mainBg}`}>
+      <header className={`sticky top-0 z-20 border-b ${chatThemeClasses.headerBorder} ${chatThemeClasses.headerBg}`}>
         <div className="mx-auto flex h-14 w-full max-w-4xl items-center justify-between px-3 sm:px-4">
           <Link aria-label="Back to rooms" className="rounded-md p-2 text-xl text-slate-200 hover:bg-slate-700/50" href="/rooms">
             ←
@@ -168,13 +193,12 @@ export default function RoomChatPage() {
           return (
             <article key={message.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
               <div className="max-w-[85%] sm:max-w-[72%]">
-                {!isMe ? <p className="mb-1 px-1 text-xs text-slate-400">{message.senderDisplayName}</p> : null}
+                {!isMe ? <p className={`mb-1 px-1 text-xs ${chatThemeClasses.senderName}`}>{message.senderDisplayName}</p> : null}
                 <div
                   className={`rounded-2xl px-4 py-2 text-sm leading-relaxed shadow-sm ${
-                    isMe ? 'rounded-br-md text-white' : 'rounded-bl-md bg-slate-700/80 text-slate-100'
+                    isMe ? chatThemeClasses.myBubble : chatThemeClasses.otherBubble
                   }`}
-                  style={isMe ? { backgroundColor: theme.accent } : undefined}
-                >
+                                  >
                   {message.body}
                 </div>
               </div>
@@ -183,17 +207,16 @@ export default function RoomChatPage() {
         })}
       </section>
 
-      <form className="fixed bottom-0 left-0 right-0 z-20 border-t border-slate-800 bg-[#121826] px-3 py-3 sm:px-4" onSubmit={sendMessage}>
+      <form className={`fixed bottom-0 left-0 right-0 z-20 border-t px-3 py-3 sm:px-4 ${chatThemeClasses.formBorder} ${chatThemeClasses.formBg}`} onSubmit={sendMessage}>
         <div className="mx-auto flex w-full max-w-4xl items-center gap-2 sm:gap-3">
           <input
-            className="w-full rounded-full border border-slate-300 bg-white px-4 py-2.5 text-sm text-black placeholder-gray-500 outline-none transition focus:ring-2"
+            className={`w-full rounded-full border px-4 py-2.5 text-sm outline-none transition focus:ring-2 ${chatThemeClasses.input}`}
             placeholder="Write a message..."
             type="text"
             value={messageInput}
             onChange={(event) => setMessageInput(event.target.value)}
-            style={{ '--tw-ring-color': theme.accent } as CSSProperties}
-          />
-          <button className="rounded-full px-4 py-2.5 text-sm font-semibold text-white" style={{ backgroundColor: theme.accent }} type="submit">
+                      />
+          <button className={`rounded-full px-4 py-2.5 text-sm font-semibold ${chatThemeClasses.sendButton}`} type="submit">
             Send
           </button>
         </div>
