@@ -9,6 +9,7 @@ import { subscribeToRoomMessages } from '@/lib/realtime/messages-channel';
 import { useMessagesStore } from '@/stores/messages-store';
 import type { ChatMessage } from '@/lib/types/chat';
 import { ThemePresetKey, themePresets } from '@/lib/theme/tokens';
+import { Settings } from 'lucide-react';
 
 type MessageRowWithProfile = {
   id: string;
@@ -174,15 +175,19 @@ export default function RoomChatPage() {
           </Link>
 
           <Link
-            className="max-w-[70%] truncate rounded-md px-3 py-1 text-base font-semibold text-slate-100 hover:bg-slate-700/50"
+            className="max-w-[70%] cursor-pointer truncate rounded-md px-3 py-1 text-base font-semibold text-slate-100 hover:bg-slate-700/50"
             href={`/rooms/${roomId}/settings`}
           >
             {roomName}
           </Link>
 
-          <button aria-label="Room settings" className="rounded-md p-2 text-xl leading-none text-slate-200 hover:bg-slate-700/50">
-            ⋮
-          </button>
+          <Link
+            aria-label="Room settings"
+            className="cursor-pointer rounded-md p-2 text-slate-200 hover:bg-slate-700/50"
+            href={`/rooms/${roomId}/settings`}
+          >
+            <Settings className="h-5 w-5" />
+          </Link>
         </div>
       </header>
 
